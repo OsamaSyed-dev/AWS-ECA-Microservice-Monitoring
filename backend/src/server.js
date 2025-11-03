@@ -13,6 +13,9 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD || "postgres",
   database: process.env.DB_NAME || "employeesdb",
   port: process.env.DB_PORT || 5432,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 // Test connection
@@ -48,7 +51,6 @@ app.post("/employees", async (req, res) => {
   }
 });
 
-// Delete employee by ID
 app.delete("/employees/:id", async (req, res) => {
   const { id } = req.params;
 
@@ -65,7 +67,6 @@ app.delete("/employees/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to delete employee" });
   }
 });
-
 
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));

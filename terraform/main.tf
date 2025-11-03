@@ -315,7 +315,8 @@ resource "aws_ecs_task_definition" "app" {
         { name = "DB_HOST",     value = aws_db_instance.main.address },
         { name = "DB_NAME",     value = var.db_name },
         { name = "DB_USER",     value = var.db_username },
-        { name = "DB_PASSWORD", value = var.db_password }
+        { name = "DB_PASSWORD", value = var.db_password },
+        { name = "DB_SSL",      value = "true" }
       ]
       logConfiguration = {
         logDriver = "awslogs"
