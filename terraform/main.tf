@@ -121,13 +121,20 @@ resource "aws_security_group" "alb_sg" {
 resource "aws_security_group" "ecs_sg" {
   name        = "${local.name_prefix}-ecs-sg"
   vpc_id      = aws_vpc.this.id
-  description = "Allow inbound from ALB and outbound to RDS"
+  description = "Allow inbound from ALB and outbound to RDS" # <- keep old description
 
   ingress {
     from_port       = 80
     to_port         = 80
     protocol        = "tcp"
     security_groups = [aws_security_group.alb_sg.id]
+  }
+
+  ingress {
+    from_port = 9113
+    to_port   = 9113
+    protocol  = "tcp"
+    self      = true
   }
 
   egress {
@@ -138,6 +145,9 @@ resource "aws_security_group" "ecs_sg" {
   }
 
   tags = { Name = "${local.name_prefix}-ecs-sg" }
+
+  # remove prevent_destroy for now
+  # lifecycle { prevent_destroy = true }
 }
 
 resource "aws_security_group" "rds_sg" {
@@ -149,7 +159,7 @@ resource "aws_security_group" "rds_sg" {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.ecs_sg.id]
+    security_groups = [aws_security_group.ecs_sg.id]  # keep reference to ECS SG
   }
 
   egress {
@@ -161,6 +171,7 @@ resource "aws_security_group" "rds_sg" {
 
   tags = { Name = "${local.name_prefix}-rds-sg" }
 }
+
 
 # -----------------------
 # ECR
@@ -245,7 +256,6 @@ resource "aws_lb_target_group" "tg" {
 
   tags = { Name = "${local.name_prefix}-tg" }
 
-  # Create replacement target group before destroying old one (safe replace)
   lifecycle {
     create_before_destroy = true
   }
@@ -261,7 +271,6 @@ resource "aws_lb_listener" "http" {
     target_group_arn = aws_lb_target_group.tg.arn
   }
 
-  # Ensure listener is created after the TG (so on destroy listener is removed first)
   depends_on = [
     aws_lb_target_group.tg
   ]
@@ -326,6 +335,23 @@ resource "aws_ecs_task_definition" "app" {
           awslogs-stream-prefix = "backend"
         }
       }
+    },
+    {
+      name      = "nginx-exporter"
+      image     = "nginx/nginx-prometheus-exporter:latest"
+      essential = true
+      portMappings = [{ containerPort = 9113, protocol = "tcp" }]
+      environment = [
+        { name = "NGINX_STATUS_URL", value = "http://localhost/nginx_status" }
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = "/ecs/${local.name_prefix}"
+          awslogs-region        = var.aws_region
+          awslogs-stream-prefix = "nginx-exporter"
+        }
+      }
     }
   ])
 }
@@ -351,6 +377,105 @@ resource "aws_ecs_service" "this" {
   }
 
   depends_on = [aws_lb_listener.http]
+}
+
+# -----------------------
+# ECS Task Definition & Service for Prometheus
+# -----------------------
+resource "aws_ecs_task_definition" "prometheus" {
+  family                   = "${local.name_prefix}-prometheus"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_task_exec_role.arn
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
+
+  volume {
+    name = "prometheus-config"
+  }
+
+  container_definitions = jsonencode([
+    {
+      name      = "prometheus"
+      image     = "prom/prometheus:latest"
+      essential = true
+      portMappings = [{ containerPort = 9090, protocol = "tcp" }]
+      mountPoints = [
+        {
+          sourceVolume  = "prometheus-config"
+          containerPath = "/etc/prometheus/"
+          readOnly      = true
+        }
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = "/ecs/${local.name_prefix}"
+          awslogs-region        = var.aws_region
+          awslogs-stream-prefix = "prometheus"
+        }
+      }
+    }
+  ])
+}
+
+resource "aws_ecs_service" "prometheus" {
+  name            = "${local.name_prefix}-prometheus"
+  cluster         = aws_ecs_cluster.this.id
+  task_definition = aws_ecs_task_definition.prometheus.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets          = [for s in aws_subnet.private : s.id]
+    security_groups  = [aws_security_group.ecs_sg.id]
+    assign_public_ip = false
+  }
+}
+
+# -----------------------
+# ECS Task Definition & Service for Grafana
+# -----------------------
+resource "aws_ecs_task_definition" "grafana" {
+  family                   = "${local.name_prefix}-grafana"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_task_exec_role.arn
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "grafana"
+      image     = "grafana/grafana:latest"
+      essential = true
+      portMappings = [{ containerPort = 3000, protocol = "tcp" }]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = "/ecs/${local.name_prefix}"
+          awslogs-region        = var.aws_region
+          awslogs-stream-prefix = "grafana"
+        }
+      }
+    }
+  ])
+}
+
+resource "aws_ecs_service" "grafana" {
+  name            = "${local.name_prefix}-grafana"
+  cluster         = aws_ecs_cluster.this.id
+  task_definition = aws_ecs_task_definition.grafana.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets          = [for s in aws_subnet.private : s.id]
+    security_groups  = [aws_security_group.ecs_sg.id]
+    assign_public_ip = false
+  }
 }
 
 # -----------------------

@@ -1,6 +1,10 @@
 const express = require("express");
 const cors = require("cors");
 const { Pool } = require("pg");
+const client = require("prom-client");
+const collectDefaultMetrics = client.collectDefaultMetrics;
+
+collectDefaultMetrics();
 
 const app = express();
 app.use(cors());
@@ -69,4 +73,15 @@ app.delete("/employees/:id", async (req, res) => {
 });
 
 const PORT = 5000;
+
+// Expose Prometheus metrics
+app.get("/metrics", async (req, res) => {
+  try {
+    res.set("Content-Type", client.register.contentType);
+    res.end(await client.register.metrics());
+  } catch (err) {
+    res.status(500).end(err);
+  }
+});
+
 app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
