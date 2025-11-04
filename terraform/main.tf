@@ -175,6 +175,16 @@ resource "aws_security_group" "rds_sg" {
 # -----------------------
 # ECR
 # -----------------------
+# ECR repository for Prometheus
+resource "aws_ecr_repository" "prometheus_repo" {
+  name = "prometheus"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
 resource "aws_ecr_repository" "frontend" {
   name                 = var.ecr_frontend_name
   image_tag_mutability = "MUTABLE"
