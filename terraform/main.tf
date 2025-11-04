@@ -395,7 +395,7 @@ resource "aws_ecs_task_definition" "prometheus" {
   container_definitions = jsonencode([
     {
       name      = "prometheus"
-      image     = "prom/prometheus:latest"
+      image     = var.prometheus_image_uri
       essential = true
       portMappings = [{ containerPort = 9090, protocol = "tcp" }]
       environment = [

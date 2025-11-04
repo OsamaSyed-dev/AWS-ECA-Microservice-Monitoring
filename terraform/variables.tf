@@ -105,3 +105,10 @@ variable "grafana_api_key" {
   description = "Grafana Cloud API Key"
   sensitive   = true
 }
+
+variable "prometheus_image_uri" {
+  description = "ECR image URI for the custom Prometheus image (including tag)"
+  type        = string
+  default     = "prom/prometheus:latest"
+}
+
