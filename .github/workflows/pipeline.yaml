@@ -83,8 +83,8 @@ jobs:
         env:
           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
-          CLUSTER_NAME: ${{ secrets.AWS_ECS_CLUSTER }}        # e.g. employee-mgmt-cluster
-          SERVICE_NAME: ${{ secrets.AWS_ECS_SERVICE }}        # e.g. employee-mgmt-service
+          CLUSTER_NAME: ${{ secrets.AWS_ECS_CLUSTER }}    
+          SERVICE_NAME: ${{ secrets.AWS_ECS_SERVICE }}        
         run: |
           echo "Forcing new deployment of ECS service..."
           aws ecs update-service \
