@@ -138,20 +138,6 @@ resource "aws_security_group" "ecs_sg" {
     protocol        = "tcp"
     security_groups = [aws_security_group.alb_sg.id]
   }
-  # New rules: allow Prometheus to scrape ECS tasks
-  ingress {
-    from_port       = 5000
-    to_port         = 5000
-    protocol        = "tcp"
-    security_groups = [aws_security_group.prometheus_sg.id]
-  }
-
-  ingress {
-    from_port       = 9113
-    to_port         = 9113
-    protocol        = "tcp"
-    security_groups = [aws_security_group.prometheus_sg.id]
-  }
 
   egress {
     from_port   = 0
@@ -162,7 +148,6 @@ resource "aws_security_group" "ecs_sg" {
 
   tags = { Name = "${local.name_prefix}-ecs-sg" }
 }
-
 
 resource "aws_security_group" "rds_sg" {
   name        = "${local.name_prefix}-rds-sg"
@@ -186,37 +171,9 @@ resource "aws_security_group" "rds_sg" {
   tags = { Name = "${local.name_prefix}-rds-sg" }
 }
 
-resource "aws_security_group" "prometheus_sg" {
-  name        = "${local.name_prefix}-prometheus-sg"
-  vpc_id      = aws_vpc.this.id
-  description = "Allow Prometheus to scrape ECS metrics"
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "${local.name_prefix}-prometheus-sg"
-  }
-}
-
-
 # -----------------------
-# ECR
+# ECR for Frontend & Backend
 # -----------------------
-# ECR repository for Prometheus
-resource "aws_ecr_repository" "prometheus_repo" {
-  name = "prometheus"
-  image_tag_mutability = "MUTABLE"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-}
-
 resource "aws_ecr_repository" "frontend" {
   name                 = var.ecr_frontend_name
   image_tag_mutability = "MUTABLE"
@@ -302,7 +259,6 @@ resource "aws_lb_target_group" "tg" {
   }
 }
 
-
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.alb.arn
   port              = 80
@@ -317,7 +273,6 @@ resource "aws_lb_listener" "http" {
     aws_lb_target_group.tg
   ]
 }
-
 
 # -----------------------
 # CloudWatch Logs
@@ -420,61 +375,6 @@ resource "aws_ecs_service" "this" {
   }
 
   depends_on = [aws_lb_listener.http]
-}
-
-# -----------------------
-# ECS Task Definition & Service for Prometheus
-# -----------------------
-resource "aws_ecs_task_definition" "prometheus" {
-  family                   = "${local.name_prefix}-prometheus"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
-  cpu                      = "512"
-  memory                   = "1024"
-  execution_role_arn       = aws_iam_role.ecs_task_exec_role.arn
-  task_role_arn            = aws_iam_role.ecs_task_role.arn
-
-  container_definitions = jsonencode([
-    {
-      name      = "prometheus"
-      image     = var.prometheus_image_uri
-      essential = true
-      portMappings = [{ containerPort = 9090, protocol = "tcp" }]
-      environment = [
-        { name = "GRAFANA_API_USER", value = var.grafana_api_user },
-        { name = "GRAFANA_API_KEY",  value = var.grafana_api_key }
-      ]
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          awslogs-group         = "/ecs/${local.name_prefix}"
-          awslogs-region        = var.aws_region
-          awslogs-stream-prefix = "prometheus"
-        }
-      }
-       # Explicitly force Prometheus to use the correct config
-      command = [
-        "--config.file=/etc/prometheus/prometheus.yaml",
-        "--storage.tsdb.path=/prometheus",
-        "--web.enable-lifecycle",
-        "--web.console.templates=/usr/share/prometheus/consoles",
-        "--web.console.libraries=/usr/share/prometheus/console_libraries",]
-    }
-  ])
-}
-
-resource "aws_ecs_service" "prometheus" {
-  name            = "${local.name_prefix}-prometheus"
-  cluster         = aws_ecs_cluster.this.id
-  task_definition = aws_ecs_task_definition.prometheus.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
-
-  network_configuration {
-    subnets          = [for s in aws_subnet.private : s.id]
-    security_groups  = [aws_security_group.prometheus_sg.id]  # <- fixed
-    assign_public_ip = false
-  }
 }
 
 # -----------------------

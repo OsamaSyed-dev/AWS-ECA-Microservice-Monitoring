@@ -26,7 +26,3 @@ output "ecr_frontend_uri" {
 output "ecr_backend_uri" {
   value = aws_ecr_repository.backend.repository_url
 }
-
-output "prometheus_repo_url" {
-  value = aws_ecr_repository.prometheus_repo.repository_url
-}

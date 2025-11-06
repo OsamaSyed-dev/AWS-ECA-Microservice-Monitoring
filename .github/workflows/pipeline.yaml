@@ -54,18 +54,6 @@ jobs:
           push: true
           tags: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.BACKEND_REPO }}:${{ env.IMAGE_TAG }}
           outputs: type=registry,ref=$.image
-
-       # ---------------- Prometheus build & push ----------------
-      - name: Build & push prometheus image
-        id: prometheus-out
-        uses: docker/build-push-action@v4
-        with:
-          context: ./monitoring
-          file: ./monitoring/Dockerfile
-          push: true
-          tags: 715841346692.dkr.ecr.us-east-1.amazonaws.com/prometheus:latest
-          outputs: type=registry,ref=$.image
-
    
 
   deploy:
