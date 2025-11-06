@@ -138,6 +138,20 @@ resource "aws_security_group" "ecs_sg" {
     protocol        = "tcp"
     security_groups = [aws_security_group.alb_sg.id]
   }
+  # New rules: allow Prometheus to scrape ECS tasks
+  ingress {
+    from_port       = 5000
+    to_port         = 5000
+    protocol        = "tcp"
+    security_groups = [aws_security_group.prometheus_sg.id]
+  }
+
+  ingress {
+    from_port       = 9113
+    to_port         = 9113
+    protocol        = "tcp"
+    security_groups = [aws_security_group.prometheus_sg.id]
+  }
 
   egress {
     from_port   = 0
@@ -171,6 +185,24 @@ resource "aws_security_group" "rds_sg" {
 
   tags = { Name = "${local.name_prefix}-rds-sg" }
 }
+
+resource "aws_security_group" "prometheus_sg" {
+  name        = "${local.name_prefix}-prometheus-sg"
+  vpc_id      = aws_vpc.this.id
+  description = "Allow Prometheus to scrape ECS metrics"
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${local.name_prefix}-prometheus-sg"
+  }
+}
+
 
 # -----------------------
 # ECR
@@ -440,7 +472,7 @@ resource "aws_ecs_service" "prometheus" {
 
   network_configuration {
     subnets          = [for s in aws_subnet.private : s.id]
-    security_groups  = [aws_security_group.ecs_sg.id]  # <- fixed
+    security_groups  = [aws_security_group.prometheus_sg.id]  # <- fixed
     assign_public_ip = false
   }
 }
