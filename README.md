@@ -58,8 +58,7 @@ To reproduce or inspect the project:
 - **ECS Fargate cluster** + services:
   - `employee-mgmt-service` (frontend + backend + nginx-exporter)  
 - **ECR Repositories:** `employee-frontend`, `employee-backend`, `prometheus`  
-- **RDS Postgres instance**  
-- **CloudWatch log group:** `/ecs/<name>`  
+- **RDS Postgres instance**   
 
 ### Files to Review
 - `terraform/main.tf`  
