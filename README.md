@@ -103,12 +103,18 @@ To reproduce or inspect the project:
 
 ## Screenshots
 **Project UI**
-![Architecture Diagram](docs/UI.png "Architecture Diagram")
+![Architecture Diagram](docs/UI.png "Frontend")
 
 **AWS Cloud Snippets**
-![Architecture Diagram](docs/archi.png "Architecture Diagram")
-![Architecture Diagram](docs/archi.png "Architecture Diagram")
+![Architecture Diagram](docs/ECS_Cluster.png "AWS ECS Cluster")
+![Architecture Diagram](docs/ECR.png "AWS ECR Repository")
 
+**Github Repo and Terraform Cloud secrets**
+![Architecture Diagram](docs/TFCloud.png "TF Cloud Secrets")
+![Architecture Diagram](docs/GitSecrets.png "Github Repo Secrets")
+
+**Graffana Cloud Dasboard Visual**
+![Architecture Diagram](docs/Graffana.png "Graffana Dashboard")
 ---
 
 ## Troubleshooting
